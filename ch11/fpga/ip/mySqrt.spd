@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<simPackage>
+ <file
+   path="mySqrt_sim/mySqrt_memoryC1_uid65_sqrtTables_lutmem.hex"
+   type="HEX" />
+ <file
+   path="mySqrt_sim/mySqrt_memoryC2_uid68_sqrtTables_lutmem.hex"
+   type="HEX" />
+ <file
+   path="mySqrt_sim/mySqrt_memoryC0_uid62_sqrtTables_lutmem.hex"
+   type="HEX" />
+ <file path="mySqrt_sim/mySqrt.vo" type="VERILOG" />
+ <topLevel name="mySqrt" />
+ <deviceFamily name="cyclone10lp" />
+</simPackage>

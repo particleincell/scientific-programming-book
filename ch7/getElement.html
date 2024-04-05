@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+</head>
+<body>
+<h1 id="heading">Hello World</h1>
+<script>
+var e = document.getElementById("heading");  // e is a reference to the element
+e.innerHTML = "*** "+e.innerHTML+" ***";    
+
+// create a new element
+var img = document.createElement("img");
+img.src = "strawberry.jpg"
+img.width = 200;
+e.parentElement.insertBefore(img,e.nextElementSibling);
+</script>
+</body>
+</html>

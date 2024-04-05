@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+ canvas {border:1px solid black;} 
+ fieldset {display:inline-block;border:0;vertical-align:top}
+</style>
+</head>
+<body>
+<canvas width="600" height="400" id="canv">Canvas not supported!</canvas>
+<fieldset>
+Colormap: <select id="cmap">
+<option value="2">Heat</option>
+<option value="1">Gray</option>
+<option value="0">Reds</option>
+</select></fieldset>
+<script>
+var c = document.getElementById("canv");
+var gl = c.getContext('webgl2');
+var program = initWebGL();
+
+initDrawing();
+setData();
+
+var theta = 0;
+drawScene();
+
+function initWebGL() {
+   if (!gl) return null; 
+
+   // Vertex shader program
+   const vsSource = `
+    attribute vec3 aVertexPosition;
+    attribute mediump float aValue;
+
+	uniform mat3 uRotMat;
+
+    varying mediump float vValue;
+
+    void main() {
+      mediump vec3 rotPos = uRotMat*aVertexPosition;
+      rotPos.z += 1.5;
+      gl_Position = vec4(rotPos,rotPos.z);
+      vValue = aValue;
+    }
+  `;
+
+  // Fragment shader program
+  const fsSource = `
+    precision mediump float;
+    uniform int uColormap;
+    varying float vValue;
+    void main(void) {
+        float f = clamp(vValue,0.0,1.0); // make sure in limits
+	    if (uColormap==0)         // reds
+		  gl_FragColor = vec4(f,0,0,1);
+   	    else if (uColormap==1)     // grayscale
+		  gl_FragColor = vec4(f,f,f,1); 
+	    else if (uColormap==2) {  //red-orange heat map
+			float a = f*3.0;
+			float r, g, b;
+			int i = int(a);
+			float fi = a-floor(a);  // fractional part
+			if (i==0) {r = fi; g=0.0; b=0.0;}
+			else if (i==1) {r=1.0;g=fi;b=0.0;}
+			else if (i==2) {r=1.0;g=1.0;b=fi;}
+			else if (i==3) {r=1.0;g=1.0;b=1.0;}
+		    gl_FragColor = vec4(r,g,b,1.0);
+        }
+                
+    } `;
+
+  const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+  const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+  const program = gl.createProgram();
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    alert('Error: ' + gl.getProgramInfoLog(shaderProgram));
+    return null;
+  }
+
+  gl.useProgram(program);
+
+  return program;
+}
+
+// loads shader code from the strings
+function loadShader(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    alert('Compilation error: ' + gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+function initDrawing() {
+  // copy vertex positions to a buffer, (-1,-1):(1,1) are the extents of a webGL window
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+    const positions = [
+    -1.0,-1.0, 
+    -0.8,0.7,
+     0.0,0.2,
+     0.9,0.8
+    ];
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+    const numComponents = 2;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    var aVertexPosition = gl.getAttribLocation(program, 'aVertexPosition');
+    gl.vertexAttribPointer(aVertexPosition, numComponents, type, normalize, stride, offset);
+    gl.enableVertexAttribArray(aVertexPosition);
+}
+
+// copies vertex values
+function setData() {
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+
+    const values = [0.2,1.0,0.4,0.0];
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(values), gl.STATIC_DRAW);
+
+    const numComponents = 1;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    var loc = gl.getAttribLocation(program, 'aValue');
+    gl.vertexAttribPointer(loc, numComponents, type, normalize, stride, offset);
+    gl.enableVertexAttribArray(loc);
+}
+
+function drawScene() {
+  theta += 1*Math.PI/180.0;       // increment theta by 1 degree
+  var loc = gl.getUniformLocation(program, 'uRotMat');
+  var rotMatrix = [Math.cos(theta),0,Math.sin(theta),    // rotate about y
+                   0, 1, 0,
+                   -Math.sin(theta),0,Math.cos(theta)];
+  gl.uniformMatrix3fv(loc, false, rotMatrix);    // transfer data to a mat3 uniform
+
+  loc = gl.getUniformLocation(program, 'uColormap');
+  gl.uniform1i(loc, document.getElementById("cmap").value);
+
+
+  // clear the canvas
+  gl.clearColor(1.0, 1.0, 1.0, 1.0);  // fully opaque white
+  gl.clearDepth(1.0);                 // also clear depth info, value in [0,1]
+  gl.enable(gl.DEPTH_TEST);           // enable depth testing
+  gl.depthFunc(gl.LEQUAL);            // make closer things obscure farther ones
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear canvas
+
+  // draw the triangles
+   const offset = 0;
+   const vertexCount = 4;
+
+   gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+   window.requestAnimationFrame(drawScene);
+}
+</script>
+</body>
+</html> 

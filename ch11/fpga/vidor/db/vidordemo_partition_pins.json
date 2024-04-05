@@ -1,0 +1,21 @@
+{
+	"partitions" : [
+		{
+			"name" : "Top",
+			"pins" : [
+				{
+					"name" : "bMKR_D[4]",
+					"strict" : false
+				},
+				{
+					"name" : "bMKR_D[5]",
+					"strict" : false
+				},
+				{
+					"name" : "bMKR_D[6]",
+					"strict" : false
+				}
+			]
+		}
+	]
+}

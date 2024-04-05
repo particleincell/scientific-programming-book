@@ -1,0 +1,4 @@
+mySqrt_sim/mySqrt_memoryC1_uid65_sqrtTables_lutmem.hex
+mySqrt_sim/mySqrt_memoryC2_uid68_sqrtTables_lutmem.hex
+mySqrt_sim/mySqrt_memoryC0_uid62_sqrtTables_lutmem.hex
+mySqrt_sim/mySqrt.vo

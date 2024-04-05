@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.controls {display:inline-block;vertical-align:top;}
+input[type="button"] {font-size:18px;color:green;}
+</style>
+</head>
+
+<body id="body">
+<canvas width="600" height="600" id="canv">Canvas not supported!</canvas>
+<div class="controls">
+Colormap: <select id="cmap">
+<option value="0">Reds</option>
+<option value="1">Gray</option>
+<option value="2">Rainbow</option>
+<option value="3">Heat</option>
+</select><br>
+Points: <input type="range" width="10px" /><br>
+<input type="button" value="Run" />
+</div>
+
+<script>
+// global variables
+var c = document.getElementById("canv");
+var gl = c.getContext('webgl2');
+var shaderProgram;
+const ni = 20, nj = 20;  // grid dimensions
+
+main();
+
+document.getElementById("cmap").addEventListener("change",function(e) {
+			cmap = parseInt(e.target.value);
+			// copy window dimensions to the fragment shader
+			  var uColormap = gl.getUniformLocation(shaderProgram, "uColormap");
+			  gl.uniform1iv(uColormap, [cmap]);
+			 drawScene(gl,shaderProgram);
+			});
+
+document.getElementById("cmap").dispatchEvent(new Event("change"));
+
+function main() {
+
+if (!gl) { document.getElementById("body").innerHTML="webGL not supported!"; return; }
+
+  // Vertex shader program
+  const vsSource = `
+    attribute vec4 aVertexPosition;
+	attribute vec2 aTextureCoord;
+	varying highp vec2 vTextureCoord;
+
+    void main() {
+      gl_Position = aVertexPosition;
+	  vTextureCoord = aTextureCoord;
+    }
+  `;
+
+  // Fragment shader program
+  const fsSource = `
+	precision mediump float;
+    uniform int uColormap;
+	varying highp vec2 vTextureCoord;
+    uniform sampler2D uSampler;
+
+    void main(void) {
+       float f = texture2D(uSampler, vTextureCoord).r;
+       f = floor(f*32.0)/32.0;
+	  if (uColormap==0) 
+		gl_FragColor = vec4(f,0,0,1);
+	  else if (uColormap==1)
+		gl_FragColor = vec4(f,f,f,1); 
+	  else if (uColormap==2) {
+		float a = (1.0-f)*5.0;
+		float r, g, b;
+		int X = int(a);
+		float Y = a-floor(a);  // fractional part
+		if (X==0) {r = 1.0; g=Y; b=0.0;}
+		else if (X==1) {r=1.0-Y;g=1.0;b=0.0;}
+		else if (X==2) {r=0.0;g=1.0;b=Y;}
+		else if (X==3) {r=0.0;g=1.0-Y;b=1.0;}
+		else if (X==4) {r=Y;g=0.0;b=1.0;}
+    	else if (X==5) {r=1.0;g=0.0;b=1.0;}
+        gl_FragColor = vec4(r,g,b,1.0); 
+	  }
+	  else if (uColormap==3) { 
+		float a = f*3.0;
+		float r, g, b;
+		int X = int(a);
+		float Y = a-floor(a);  // fractional part
+		if (X==0) {r = Y; g=0.0; b=0.0;}
+		else if (X==1) {r=1.0;g=Y;b=0.0;}
+		else if (X==2) {r=1.0;g=1.0;b=Y;}
+		else if (X==3) {r=1.0;g=1.0;b=1.0;}
+        gl_FragColor = vec4(r,g,b,1.0); 
+	  
+	  }
+    }
+  `;
+
+  // set up the GPU code
+  shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+  // draw the image
+  drawScene(gl,shaderProgram);
+
+  // postprocess on the CPU - could be done faster on the GPU
+  // get a buffer containing all pixels
+  var N_in = 0;
+  var N_tot = gl.drawingBufferWidth*gl.drawingBufferHeight;
+  var pixels = new Uint8Array(N_tot * 4);
+  gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+  // loop over all pixels and count how many we have with non-zero green component (inside)
+  for (var u=0;u<N_tot;u++)
+     if(pixels[4*u+1]>0) N_in++;
+
+}
+
+function drawScene(gl, program) {
+  // Tell WebGL to use our program when drawing
+  gl.useProgram(program);
+
+  
+  // clear the canvas
+  gl.clearColor(1.0, 1.0, 1.0, 1.0);  // Clear to white, fully opaque
+  gl.clearDepth(1.0);                 // Clear everything
+  gl.enable(gl.DEPTH_TEST);           // Enable depth testing
+  gl.depthFunc(gl.LEQUAL);            // Near things obscure far things
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  // copy vertex positions to a buffer, (-1,-1):(1,1) are the extents of a webGL window
+  {
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    const positions = [
+ 	-1.0,-1.0, 
+     -1.0,1.0,
+     1.0,-1.0,
+	 1.0,1.0
+    ];
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+    const numComponents = 2;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    var aVertexPosition = gl.getAttribLocation(program, 'aVertexPosition');
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.vertexAttribPointer(aVertexPosition, numComponents, type, normalize, stride, offset);
+    gl.enableVertexAttribArray(aVertexPosition);
+  }
+
+
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  var ni = 40;
+  var nj = 40;
+  const level = 0;
+  const internalFormat = gl.R16F
+  const width = ni;
+  const height = nj;
+  const border = 0;
+  const srcFormat = gl.RED;
+  const srcType = gl.FLOAT;
+
+  var data = Array(ni*nj).fill(0);
+  for (var j=0;j<nj;j++) 
+   for (var i=0;i<ni;i++) {
+	var u = j*ni+i;
+    data[u] = u/(ni*nj);
+   }
+
+  const pixel = new Float32Array(data);  // opaque blue
+  gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                width, height, border, srcFormat, srcType,
+                pixel);
+     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+const textureCoordBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+
+  const textureCoordinates = [
+    0.0,  0.0,
+    0.0,  1.0,
+    1.0,  0.0,
+    1.0,  1.0,
+  ];
+
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordinates),
+                gl.STATIC_DRAW);
+
+  {
+    const num = 2; // every coordinate composed of 2 values
+    const type = gl.FLOAT; // the data in the buffer is 32 bit float
+    const normalize = false; // don't normalize
+    const stride = 0; // how many bytes to get from one set to the next
+    const offset = 0; // how many bytes inside the buffer to start from
+    var textureCoord = gl.getAttribLocation(program, 'aTextureCoord');
+    gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+    gl.vertexAttribPointer(textureCoord, num, type, normalize, stride, offset);
+    gl.enableVertexAttribArray(textureCoord);
+}
+
+/*
+     vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
+      textureCoord: gl.getAttribLocation(shaderProgram, 'aTextureCoord'),
+    },
+    uniformLocations: {
+      uSampler: gl.getUniformLocation(shaderProgram, 'uSampler'),
+*/
+  // Tell WebGL we want to affect texture unit 0
+  gl.activeTexture(gl.TEXTURE0);
+
+  // Bind the texture to texture unit 0
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  // Tell the shader we bound the texture to texture unit 0
+  var uSampler = gl.getUniformLocation(shaderProgram, 'uSampler');
+  gl.uniform1i(uSampler, 0);
+
+
+  // draw the triangles
+  {
+    const offset = 0;
+    const vertexCount = 4;
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+  }
+}
+
+// this function sets up the GPU code
+function initShaderProgram(gl, vsSource, fsSource) {
+  const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+  const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+  const shaderProgram = gl.createProgram();
+  gl.attachShader(shaderProgram, vertexShader);
+  gl.attachShader(shaderProgram, fragmentShader);
+  gl.linkProgram(shaderProgram);
+
+  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+    alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
+    return null;
+  }
+
+  return shaderProgram;
+}
+
+// loads shader code from the strings
+function loadShader(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    alert('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+
+  return shader;
+}
+</script>
+</body>
+</html> 

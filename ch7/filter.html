@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv='Content-Type' content='text/html;charset=utf-8'></meta>
+    <title>Signal Filter</title>
+    <style>
+    div#drop_zone {display:flex; height:80px; width:200px; 
+                 border: 2px dashed gray; border-radius:10px; 
+                 color: gray; align-items:center;justify-content:center;
+				}
+
+    div#flexbox {display:flex;flex-wrap:wrap;margin-bottom:1em;max-width:600px;}
+    fieldset {min-width:300px;}
+	canvas {border:1px solid #eee;display:block;}
+    a{display:block;font-size:0.8em;color:gray;}
+    a:hover{color:black;}
+    </style>
+    
+  </head>
+  <body>
+   <h2>Signal Filter</h2>
+    
+   <div id="flexbox">
+   <div id="drop_zone">Drop a .csv file here</div>
+   <input type="file" id="fs" accept="text/csv" oninput="inf(this)" />
+   <form name="inputs">
+	<fieldset> 
+	<legend>Options</legend>
+	<label>Point Skip:</label>
+	<input type = "radio" name = "skip" value = "1" onclick="redraw()">1 
+	<input type = "radio" name = "skip" value = "5" onclick="redraw()">5 
+	<input type = "radio" name = "skip" value = "25" onclick="redraw()">25 
+	<input type = "radio" name = "skip" value = "50" checked onclick="redraw()">50 
+	<input type = "checkbox" name = "markers" onclick="redraw()">Markers  <br>
+	<label>Filter:</label>
+	<input type = "radio" name = "ft" value = "lp" onclick="filter()">low pass 
+	<input type = "radio" name = "ft" value = "hp" onclick="filter()">high pass
+	<input type = "radio" name = "ft" value = "w5" onclick="filter()">window (5) 
+	<input type = "radio" name = "ft" value = "w20" onclick="filter()">window (20) 
+	
+	</fieldset>
+	<form>
+</div>
+
+<canvas id="plot" width="600" height="400">
+<p>Your browser doesn't support canvas.</p>
+</canvas>
+
+<script type="text/javascript"> 
+
+var canvas = document.getElementById('plot');
+var ctx = canvas.getContext('2d');
+var width = canvas.width;
+var height = canvas.height;
+
+var signal = [];
+var filtered = [];
+
+/*this function does the actual drawing*/
+function drawLine(points, color, axis, markers) 
+{
+	var i, x, y;
+
+	var skip = parseInt(document.inputs.skip.value);
+	
+	// pixel coordinates of the origin, y goes top to bottom
+    var x0 = [10,height-60];  
+    var xd = [width-10, 20];
+
+	// hardcoded for xlim=[0,6], ylim=[0,5]
+	var scale_x = (xd[0]-x0[0])/6;
+	var scale_y = (x0[1]-xd[1])/5;
+    
+	if (axis) {  // draw axis
+		ctx.lineWidth = 1;
+		ctx.strokeStyle = "black";
+		ctx.beginPath();
+		ctx.moveTo(x0[0], x0[1]);
+		ctx.lineTo(xd[0], x0[1]);  // x axis
+		ctx.moveTo(x0[0], x0[1]);
+		ctx.lineTo(x0[0], xd[1]);  // y axis
+		ctx.stroke();
+
+		// add text, needs to be last to overlap graph
+		ctx.fillStyle = "black";
+		ctx.font = 'italic 14px sans-serif';
+		ctx.textBaseline = 'top';
+		ctx.fillText('signal', x0[0]+5, xd[1]);
+		ctx.fillText('t (s)', xd[0]-30, x0[1]+5);
+	}	
+	
+	// draw line			
+	ctx.strokeStyle = color;
+	ctx.lineWidth = 2;
+	ctx.beginPath();
+	
+	for(i = 0; i < points.length; i+=skip) 
+	{
+		x = x0[0] + points[i][0]*scale_x;
+		y = x0[1] - points[i][1]*scale_y;
+		if (i==0) 
+			ctx.moveTo(x, y);
+		else 
+			ctx.lineTo(x,y);
+	 }
+   	ctx.stroke();
+	
+	// optionally plot markers	
+	if (markers) {
+		ctx.fillStyle="#FFFFFF";
+		for(i = 0; i < points.length; i+=skip) {
+			x = x0[0] + points[i][0]*scale_x;
+			y = x0[1] - points[i][1]*scale_y;
+			ctx.beginPath();
+			ctx.arc(x, y, 5, 0, 2*Math.PI, false);
+			ctx.fill();
+			ctx.stroke();
+		}
+	}
+	
+}
+
+function filter() {
+	filtered = [];
+    if (typeof(signal)==="undefined" ||
+        signal.length == 0) return;
+
+    var np = signal.length;
+	var type = document.inputs.ft.value;
+	if (type=='hp') {
+      var RC = 0.1;  // hard coded value
+      var dt = signal[1][0]-signal[0][0];
+      var alpha = RC/(RC+dt);
+      filtered.push([signal[0][0],signal[0][1]]);
+      for (var i=1;i<np;i++) {
+           var t = signal[i][0];
+           var y = signal[i][1];
+           filtered.push([t,alpha*(filtered[i-1][1] + signal[i][1]-signal[i-1][1])]);
+      }
+    }    
+	if (type=='lp') {
+      var RC = 0.1;  // hard coded value
+      var dt = signal[1][0]-signal[0][0];
+      var alpha = dt/(RC+dt);
+      filtered.push([signal[0][0],alpha*signal[0][1]]);
+      for (var i=1;i<np;i++) {
+           var t = signal[i][0];
+           var y = signal[i][1];
+           filtered.push([t,alpha*y+(1-alpha)*filtered[i-1][1]]);
+      }
+
+    }
+	else if (type[0]=='w') {
+        var w = parseInt(type.substr(1));
+		for (var i=0;i<np;i++) {
+		    var j1 = Math.max(i-w,0);
+		    var j2 = Math.min(i+w,np);	
+		    var y_sum = 0, t_sum = 0;
+		    for (var j=j1;j<j2;j++) {
+		       t_sum += signal[j][0];
+		       y_sum += signal[j][1];
+		    }
+			var t = t_sum/(j2-j1);  // average
+			var y = y_sum/(j2-j1);  
+		    filtered.push([t,y]);
+		}
+  }
+  redraw();
+  createOutput();
+  
+}
+
+var input_file_name = "";
+  /*create save link*/
+function createOutput() {
+
+	var save_link = document.getElementById("save_link");
+	if (save_link==null || typeof(save_link)=="undefined") {
+		/*create link to save contents*/
+		save_link = document.createElement("a");
+    	save_link.id = "save_link";
+		canvas.parentNode.insertBefore(save_link,canvas.nextElementSibling);
+	}
+	
+	var out_name = input_file_name.substr(0,input_file_name.length-4)+"_filtered.csv"
+	save_link.innerHTML="Download "+out_name;
+	save_link.setAttribute('download',out_name);
+
+	var text="t,signal,filter\n";
+    for (var i=0;i<signal.length;i++) {
+	  text+=signal[i][0].toFixed(5)+","+
+			signal[i][1]+","+filtered[i][1]+"\n";
+    }
+
+	save_link.setAttribute('href',"data:text/csv;charset=utf-8,"+encodeURIComponent(text));
+}
+
+function redraw() {
+	var plot_markers = document.inputs.markers.checked;
+	ctx.clearRect(0, 0, width, height);
+
+	drawLine(signal,'red',true,plot_markers);
+	drawLine(filtered,'blue',true,plot_markers);
+}
+
+// Setup the dnd listeners.
+//var dropZone = document.getElementsByTagName('canvas')[0];
+var dropZone = document.getElementById('drop_zone');
+dropZone.addEventListener('dragover', handleDragOver, false);
+dropZone.addEventListener('dragleave', handleDragLeave, true);
+dropZone.addEventListener('drop', handleFileSelect, false);
+redraw();
+
+/*------- FILE READING ------*/
+  function handleFileSelect(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+	
+	evt.target.style.background="white";
+
+	read(evt.dataTransfer.files[0],evt);
+}
+
+function read(file) {	
+	/*parse file*/
+	var reader = new FileReader();
+	
+	// Closure to capture the file information.
+/*
+	reader.onload = (function(file) {
+		return function(e) {
+			parse(e.target.result);
+
+         };
+      })(f);
+*/
+	reader.onload = function(e) {
+			parse(e.target.result);
+			console.log("Done reading "+file.name);		
+		 };
+
+    input_file_name = file.name;	
+	reader.readAsText(file);
+  }
+
+  function handleDragOver(evt) {
+    evt.dataTransfer.dropEffect = 'copy'; 
+	evt.stopPropagation();
+    evt.preventDefault();
+	evt.currentTarget.style.background="#eee";
+    }
+
+	function handleDragLeave(evt) {
+	/*evt.target seems to be the new element over the mouse, currentTarget is the original*/
+		evt.currentTarget.style.background="white";
+	}
+
+/*parses the primary file*/
+function parse(buffer) {
+	/*split into lines*/
+	var lines = buffer.split(/[\r\n]/);	
+	signal = [];
+
+	// skip line 1 which has the headers
+	for (var i=1;i<lines.length;i++) {
+		var line = lines[i].trim();
+		if (line=="") continue;	//skip empty lines
+
+		// split line
+		var d = line.split(',');
+		var t = parseFloat(d[0]);
+        var y = parseFloat(d[1]);
+		signal.push([t,y]);
+	}
+	filter(); 
+}
+
+function inf(e) {
+  read(e.files[0]);
+}
+
+</script>
+
+</body>
+
+</html>
+
+ 

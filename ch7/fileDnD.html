@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv='Content-Type' content='text/html;charset=utf-8'></meta>  
+<style>
+div#flexbox {display:flex;flex-wrap:wrap;margin-bottom:1em;max-width:600px;}
+div#drop_zone {display:flex; height:80px; width:200px; 
+             border: 2px dashed gray; border-radius:10px; 
+             color: gray; align-items:center;justify-content:center;
+			}
+
+</style>
+</head>
+
+<body>
+<div id="flexbox">
+<div id="drop_zone">Drop a .csv file here</div>
+</div>
+<textarea id="log"></textarea>
+  
+<script>
+// Setup the dnd listeners.
+var dropZone = document.getElementById('drop_zone');
+dropZone.addEventListener('dragover', handleDragOver);
+dropZone.addEventListener('dragleave', handleDragLeave);
+dropZone.addEventListener('drop', handleDrop);
+
+function handleDrop(evt) {
+    evt.stopPropagation();  // prevent default file drop response
+    evt.preventDefault();
+	evt.target.style.background="white";
+	read(evt.dataTransfer);  // contains files array
+}
+
+function handleDragOver(evt) {
+	evt.dataTransfer.dropEffect = 'copy'; 
+	evt.currentTarget.style.background="#eee";
+}
+
+function handleDragLeave(evt) {
+  // currentTarget is the original element
+	evt.currentTarget.style.background="white";
+}
+
+function read(el) {
+	var file = el.files[0];  // the first selected file
+	var reader = new FileReader();
+	reader.onload = function(e) {
+            const data = e.target.result;
+			document.getElementById("log").innerHTML = data;
+			console.log("Done reading "+file.name);		
+		 };
+	reader.readAsText(file);
+	console.log(reader);
+  }
+
+
+
+</script>
+</body>
+</html>
+
+ 

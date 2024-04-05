@@ -1,0 +1,12 @@
+vendor_name = ModelSim
+source_file = 1, /home/lubos/Documents/papers/book/SciComp/codes/ch11/fpga/blink1/blink.v
+source_file = 1, /home/lubos/Documents/papers/book/SciComp/codes/ch11/fpga/blink1/db/blink.cbx.xml
+design_name = blink
+instance = comp, \LED~output , LED~output, blink, 1
+instance = comp, \button2~input , button2~input, blink, 1
+instance = comp, \button1~input , button1~input, blink, 1
+instance = comp, \LED~0 , LED~0, blink, 1
+design_name = hard_block
+instance = comp, \~ALTERA_ASDO_DATA1~~ibuf , ~ALTERA_ASDO_DATA1~~ibuf, hard_block, 1
+instance = comp, \~ALTERA_FLASH_nCE_nCSO~~ibuf , ~ALTERA_FLASH_nCE_nCSO~~ibuf, hard_block, 1
+instance = comp, \~ALTERA_DATA0~~ibuf , ~ALTERA_DATA0~~ibuf, hard_block, 1

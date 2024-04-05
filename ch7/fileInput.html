@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv='Content-Type' content='text/html;charset=utf-8'></meta>  
+</head>
+<body>
+<input type="file" id="fs" accept="text/csv" oninput="read(this)" /><br>
+<textarea id="log"></textarea>
+  
+<script>
+
+function read(el) {
+	var file = el.files[0];  // the first selected file
+	var reader = new FileReader();
+	reader.onload = function(e) {
+            const data = e.target.result;
+			document.getElementById("log").innerHTML = data;
+			console.log("Done reading "+file.name);		
+		 };
+	reader.readAsText(file);
+  }
+</script>
+</body>
+</html>
+
+ 

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+ canvas {border:1px solid black;} 
+</style>
+</head>
+<body>
+<canvas width="600" height="400" id="canv">Canvas not supported!</canvas>
+
+<script>
+var c = document.getElementById("canv");
+var gl = c.getContext('webgl2');
+var program = initWebGL();
+drawScene();
+
+function initWebGL() {
+   if (!gl) return null; 
+
+   // Vertex shader program
+   const vsSource = `
+    attribute vec4 aVertexPosition;
+
+    void main() {
+      gl_Position = aVertexPosition;
+    }
+  `;
+
+  // Fragment shader program
+  const fsSource = `
+    void main(void) {
+        gl_FragColor = vec4(0.8,0.8,0.8,1.0); 
+
+    }
+  `;
+
+  const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+  const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+  const program = gl.createProgram();
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    alert('Error: ' + gl.getProgramInfoLog(shaderProgram));
+    return null;
+  }
+
+  gl.useProgram(program);
+
+  return program;
+}
+
+// loads shader code from the strings
+function loadShader(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    alert('Compilation error: ' + gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+function drawScene() {
+
+  
+  // copy vertex positions to a buffer, (-1,-1):(1,1) are the extents of a webGL window
+  {
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+    const positions = [
+ 	-1.0,-1.0, 
+     -0.8,0.7,
+     0.0,0.0,
+	 0.9,0.6
+    ];
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+    const numComponents = 2;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    var aVertexPosition = gl.getAttribLocation(program, 'aVertexPosition');
+    gl.vertexAttribPointer(aVertexPosition, numComponents, type, normalize, stride, offset);
+    gl.enableVertexAttribArray(aVertexPosition);
+  }
+
+  // clear the canvas
+  gl.clearColor(1.0, 1.0, 1.0, 1.0);  // fully opaque white
+  gl.clearDepth(1.0);                 // also clear depth info, value in [0,1]
+  gl.enable(gl.DEPTH_TEST);           // enable depth testing
+  gl.depthFunc(gl.LEQUAL);            // make closer things obscure farther ones
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear canvas
+
+
+  // draw the triangles
+  {
+    const offset = 0;
+    const vertexCount = 4;
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+  }
+}
+
+
+
+</script>
+</body>
+</html> 

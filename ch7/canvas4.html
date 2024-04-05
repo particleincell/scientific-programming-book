@@ -1,0 +1,163 @@
+<!--
+Version 2: adds controls
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body {background-color: white;}
+  h1 {margin:0.2em}
+  div.cdiv {
+    display:inline-block;
+    text-align:center;
+    border-radius:20px;
+    box-shadow: 0px 0px 10px #464;
+    padding: 1em 2em;
+    margin: 10px 50px;
+    background-color:#eee;
+  }
+  canvas {
+    border: 2px solid black;
+    background-color:white;
+  }
+
+  #toggle {
+    font-size:2em;
+    color:blue;
+  }
+  #toggle.running {color:red}
+
+  div.note {color:gray;font-size:0.8em;}
+</style>
+
+</head>
+<body>
+
+<div class="cdiv">
+<h1>Canvas Example</h1>
+<canvas width=600 height=500 id="canv"> </canvas>
+<br>
+<input type="button" id="toggle" value="Start" onclick=toggle(this) />
+<div class="note">Click the mouse to add balls, press 'C' to clear, arrows to accelerate</div>
+</div>
+
+<script>
+// global variables
+var c = document.getElementById("canv");
+var ctx = c.getContext("2d");
+
+class Ball {
+  constructor(x,y,u,v,r) {
+    this.x = x; this.y = y;
+    this.u = u; this.v = v;
+    this.r = r; 
+  }
+}
+var balls = [];  // empty array
+var gx = 0.0;
+var gy = 9.81;    // origin on top
+
+function advance() {
+  const dt = 0.1;
+  for (var i = 0;i<balls.length;i++) {
+      var ball = balls[i]; 
+      ball.u += gx*dt;
+      ball.v += gy*dt;
+      ball.x += ball.u*dt;
+      ball.y += ball.v*dt;
+  
+	  if (ball.y>c.height) {  // bottom wall impact 
+		 ball.y = 2*c.height-ball.y;
+		 ball.v = -ball.v;
+	  }
+
+      //remove out of domain objects
+      if (ball.x<-ball.r || ball.x>c.width+ball.r) {
+         balls.splice(i,1);   // remove 1 element at position i
+      }
+  }
+}
+
+function draw() {
+  advance();  // update positions
+
+  // clear canvas;
+  ctx.fillStyle = "white";
+  ctx.fillRect(0,0,600,500);
+
+  for (var i = 0;i<balls.length;i++) {
+      var ball = balls[i]; 
+	  var grd = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, 1.3*ball.r);
+
+      speed = Math.sqrt(ball.u*ball.u+ball.v*ball.v);
+      grd.addColorStop(0, valToRGB(speed/100));
+	  grd.addColorStop(1, "white");
+  	  ctx.beginPath();
+  	  ctx.fillStyle = grd;
+	  ctx.arc(ball.x,ball.y,ball.r, 0, 2*Math.PI);
+      ctx.fill(); 
+	}
+
+  if (running) window.requestAnimationFrame(draw);
+}
+
+/* converts value in range 0:1 to a rainbow colormap,
+see https://www.particleincell.com/2014/colormap/
+*/
+function valToRGB(val) {
+    if (val<0) val = 0;  // clamp to [0,1]
+    if (val>1) val = 1;
+	var a = (1-val)*4.0;	// invert and scale to [0,4]
+	var i = Math.floor(a);	//integer part
+	var f = Math.floor(255*(a-i)); //fractional part as [0,255] integer
+	switch(i) {
+		case 0: r=255; g=f; b=0; break;
+		case 1: r=255-f; g=255; b=0; break;
+		case 2: r=0; g=255; b=f; break;
+		case 3: r=0; g=255-f; b=255; break;
+		case 4: r=0; g=0; b=255; break;
+	}
+	return "rgb("+r+","+g+","+b+")";
+}
+
+
+var running = false;
+function toggle(button) {
+  running = !running;  //toggle boolean
+  if (running) {     
+     button.value="Stop";
+     draw();
+    }
+    else {
+      button.value="Start";
+   }
+   button.classList.toggle("running"); // add or remove class
+}
+toggle(document.getElementById("toggle"));   // press "Start" button
+
+document.addEventListener("keydown", function(event) {
+    if (event.keyCode == 67) {  // C key
+      balls = [];		// clear array
+    }
+	else if (event.keyCode==38) gy -= 0.2;  // up
+    else if (event.keyCode==40) gy += 0.2;  // down
+    else if (event.keyCode==37) gx -= 0.2;  // left
+    else if (event.keyCode==39) gx += 0.2;  // right
+});
+
+//add mouse button listener
+c.addEventListener("mousedown",function(event) {
+  const rect = c.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+  const u = -20+Math.random()*40;     // random x velocity
+  const v = -50+Math.random()*100;    // random y velocity
+  const r = 10+Math.random()*30;      // random radius
+  balls.push(new Ball(x,y,u,v,r));  
+});
+
+</script>
+</body>
+
+</html>

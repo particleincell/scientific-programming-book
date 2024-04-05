@@ -1,0 +1,6 @@
+sudo apt-get install libblas-dev liblapack-devsudo apt-get install liblapacke-dev
+
+sudo apt-get install liblapacke-dev
+
+mpic++ lapack.cpp -o main -llapacke -llapack -lblas -lm -Wall
+

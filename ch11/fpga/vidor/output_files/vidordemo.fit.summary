@@ -1,0 +1,16 @@
+Fitter Status : Successful - Mon May  8 18:53:12 2023
+Quartus Prime Version : 19.1.0 Build 670 09/22/2019 SJ Lite Edition
+Revision Name : vidordemo
+Top-level Entity Name : top
+Family : Cyclone 10 LP
+Device : 10CL016YU256C8G
+Timing Models : Final
+Total logic elements : 43 / 15,408 ( < 1 % )
+    Total combinational functions : 43 / 15,408 ( < 1 % )
+    Dedicated logic registers : 32 / 15,408 ( < 1 % )
+Total registers : 32
+Total pins : 138 / 163 ( 85 % )
+Total virtual pins : 0
+Total memory bits : 0 / 516,096 ( 0 % )
+Embedded Multiplier 9-bit elements : 0 / 112 ( 0 % )
+Total PLLs : 1 / 4 ( 25 % )

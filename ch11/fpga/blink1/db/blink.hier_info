@@ -1,0 +1,7 @@
+|blink
+button1[0] => LED.IN0
+button1[1] => ~NO_FANOUT~
+button2 => LED.IN1
+LED <= LED.DB_MAX_OUTPUT_PORT_TYPE
+
+

@@ -1,0 +1,264 @@
+<!--
+ASTE-499 Lesson 4 Canvas Example
+Version 1: 
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body {
+     background-color: #eee;
+   
+  }
+  div.cdiv {
+    display:inline-block;
+    text-align:center;
+    border-radius:20px;
+    box-shadow: 5px 5px gray;
+    border: 4px dashed gray;
+    padding: 1em 2em;
+    margin: 10px 50px;
+    background-color:#ffe;
+  }
+  canvas {
+    border: 2px solid black;
+    background-color:white;
+  }
+
+   div.controls{ 
+   display:inline-block;
+   vertical-align:top;
+   text-align:left;
+  }
+  div.controls input {width:5em;}
+  div.controls button {font-size:1.2em;color:blue;}
+
+</style>
+</head>
+
+<body>
+<div class="cdiv">
+<h1>Genetic Algorithm</h1>
+<canvas width=600 height=500 id="canv"> </canvas>
+<div class="controls">
+Number of points: <input id="num_points" value="20"/><br>
+Population size: <input id="pop_size" value="50"/><br>
+Circle: <input type="checkbox" id="circle" checked/><br>
+<!--Crossover: <input type="range" id="crossover"/><br>
+Mutation: <input type="range" id="mutation"/><br>
+-->
+<br>
+<button id="go" onclick="go()">Start</button>
+</div>
+
+</div>
+
+<script>
+// global variables
+var c = document.getElementById("canv");
+var ctx = c.getContext("2d");
+var running = false;
+var gen = 0;		// current genaration
+var num_points;
+var points;
+var pop_size;
+var paths;
+var fittest_path;
+
+function draw() {
+
+  ctx.fillStyle = "white";
+  ctx.fillRect(0,0,c.width,c.height);
+
+ // draw paths
+   for (var i=0;i<paths.length;i++) {
+    var p = paths[i].path;
+    ctx.beginPath();
+	ctx.moveTo(points[p[0]].x,points[p[0]].y);
+    
+    for (var j=1;j<points.length+1;j++) {
+     var j2 = j%points.length;  // wrap around for roundtrip, for j=points.length, we get j=0
+	 ctx.lineTo(points[p[j2]].x,points[p[j2]].y);
+    }
+
+    ctx.lineWidth=1;
+	ctx.strokeStyle="rgb(120,120,255)";
+ 	
+	ctx.stroke();
+   }
+
+   calcFitness();
+ 
+   var p = paths[fittest_path].path;
+   ctx.beginPath();
+   ctx.moveTo(points[p[0]].x,points[p[0]].y);
+    
+    for (var j=1;j<points.length+1;j++) {
+     var j2 = j%points.length;
+	 ctx.lineTo(points[p[j2]].x,points[p[j2]].y);
+	}
+    ctx.lineWidth=4;
+	ctx.strokeStyle="rgb(0,0,255)";
+ 	
+	ctx.stroke();
+
+
+  // draw points	
+  for (var i=0;i<points.length;i++) {
+	
+	  const x = points[i].x;
+      const y = points[i].y;
+	  const r = 15;
+	  // Create gradient
+	  var grd = ctx.createRadialGradient(x, y, 0, x, y, 1.3*r);
+	  grd.addColorStop(0, "green");
+	  grd.addColorStop(1, "white");
+
+	  ctx.beginPath();
+	  ctx.arc(x,y,r, 0, 2*Math.PI);
+	  ctx.fillStyle = grd;
+	  ctx.fill(); 
+	}
+
+  makeNewGeneration();  // make new generation
+  if ((++gen)>2000) {running=false;document.getElementById("go").innerHTML = "Start";gen=0;}
+  if (running) requestAnimationFrame(draw);
+}
+
+function calcFitness() { 
+ var min_val = 1e66 ;  //looking for small value so initialize to a huge number
+ for (var i=0;i<paths.length;i++) {
+  var p = paths[i].path;
+  paths[i].len = 0;
+  for (var j1=0;j1<points.length;j1++) {
+    var j2 = j1+1;
+    if (j2>points.length-1) j2=0; // wrap arround
+    var dx = points[p[j2]].x - points[p[j1]].x;
+    var dy = points[p[j2]].y - points[p[j1]].y;
+    paths[i].len += Math.sqrt(dx*dx+dy*dy);  // accumulate total length
+  }
+  // "remember" the fittest (shortest) path
+  if (paths[i].len<min_val) {min_val = paths[i].len;fittest_path=i;}
+ }
+
+ // normalize
+ for (var i=0;i<paths.length;i++) {
+   paths[i].fitness = 2 - paths[i].len/min_val;
+ }
+}  // calcFitness cost function
+
+// produces new generation by mating random parents
+function makeNewGeneration() {
+   var new_paths = [];
+   while (new_paths.length<pop_size) {
+    var p1,p2;
+	do {
+      p1 = Math.floor(Math.random()*pop_size);
+    } while (paths[p1].fitness<Math.random());
+
+	do {
+      p2 = Math.floor(Math.random()*pop_size);
+    } while (p1==p2 || paths[p2].fitness<Math.random());   
+
+    // now have two parents
+    // copy random section to copy from p1
+    var a = [];
+    for (var k=0;k<num_points;k++) a[k] = -1;
+    var j1 = Math.floor(Math.random()*num_points);
+    var j2 = j1+Math.floor(Math.random()*(num_points-j1));	
+    for (var j=j1;j<j2;j++) a[j] = paths[p1].path[j];
+   
+
+    //second param is j2+num_points-(j2-j1)
+	for (var j=j2;j<j1+num_points;j++) {
+      var jj = j%num_points; //wrap around
+      
+	  // do we have this point already?
+      var found=false;
+      for (var k=0;k<num_points;k++) 
+		if (a[k]==paths[p2].path[jj]) {found=true;break;}
+	  if (!found)  a[jj] = paths[p2].path[jj];
+			else a[jj]=-1;
+  	}
+
+    // replace any -1s
+	for (var k=0;k<num_points;k++) if (a[k]<0) {
+     var val=0;
+     do {
+	   val = Math.floor(Math.random()*num_points);
+	   for (var k2=0;k2<num_points;k2++) if (a[k2]==val) val = -1;
+     } while(val<0);
+     a[k] = val;
+    }
+
+    // mutation, swap two points
+	if (Math.random()<0.05) {
+     var j1 = Math.floor(Math.random()*num_points);
+     var j2 = Math.floor(Math.random()*num_points);
+     var b = a[j1];
+     a[j1] = a[j2];
+	 a[j2]=b;
+    }
+
+    new_paths.push({path:a});
+
+
+   }
+  paths = new_paths;
+}
+
+
+function go() {
+	
+	points = [];
+    num_points = Math.floor(document.getElementById("num_points").value);
+    if (num_points<3) num_points=3;
+	document.getElementById("num_points").value = num_points;
+
+	var make_circle = document.getElementById("circle").checked;
+
+    // pick "cities"
+    for (var i=0;i<num_points;i++) {
+		var x, y;
+		if (make_circle) {
+			var theta = 2*Math.PI*(i/num_points);
+			x = 250+200*Math.cos(theta);
+			y = 250+200*Math.sin(theta);
+		} else {
+			var x = (0.05+0.85*Math.random())*c.width;
+			var y = (0.05+0.85*Math.random())*c.height;
+		}		
+		points.push({x:x,y:y});
+    }
+
+    // make initial generation
+    pop_size = Math.floor(document.getElementById("pop_size").value);
+    if (pop_size<5) pop_size = 5;
+	document.getElementById("pop_size").value = pop_size;
+    // create random paths
+	paths = [];
+	for (var i=0;i<pop_size;i++) {
+	  var a = [];
+	  for (var k=0;k<num_points;k++) a[k] = -1;
+      for (var j=0;j<num_points;j++) {
+         // find random position  
+		 do {
+		 	k = Math.floor(Math.random()*num_points)
+		 } while (a[k]>=0);
+		 a[k] = j;	
+      }
+      paths.push({path:a});
+	}
+	
+	document.getElementById("go").innerHTML = "Restart";
+	if (!running) {
+		running = true;
+		draw();
+	}
+}
+
+</script>
+</body>
+
+</html>

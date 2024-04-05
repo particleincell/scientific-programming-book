@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style> #ele {color:rgb(255,0,0);} </style>
+
+</head>
+<body>
+<h1 id="ele"></h1>
+<script>
+var e = document.getElementById("ele");
+var i = 0;
+function draw() {
+  var string = "Hello World"; 
+  if (i<string.length) {  // if i is not yet at the end of string
+    e.innerHTML += string[i];  // add i-th letter
+    i++;                       // increment i
+  }
+};
+var interval = setInterval(draw, 200);  // call "draw" every 200 ms
+</script>
+</body>
+
+</html>

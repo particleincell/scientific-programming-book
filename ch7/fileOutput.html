@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv='Content-Type' content='text/html;charset=utf-8'></meta>  
+</head>
+<body>
+<input type="file" id="fs" accept="text/csv" oninput="read(this)" /><br>
+<textarea id="log"></textarea>
+  
+<script>
+var input_file_name;
+function read(el) {
+	var file = el.files[0];  // the first selected file
+	var reader = new FileReader();
+	reader.onload = function(e) {
+            const data = e.target.result;
+			document.getElementById("log").innerHTML = data;
+			console.log("Done reading "+file.name);		
+			input_file_name = file.name;
+			createOutput(data);
+		 };
+	reader.readAsText(file);
+  }
+function createOutput(data) {
+  var save_link = document.createElement("a");
+  save_link.id = "save_link";
+  var text_area = document.getElementById("log");
+  text_area.parentNode.insertBefore(save_link,text_area.nextElementSibling);
+	
+  var out_name = input_file_name.substr(0,input_file_name.length-4)+"_filtered.csv"
+  save_link.innerHTML="Download "+out_name;
+  save_link.setAttribute('download',out_name);
+
+
+ // build output string
+	var lines = data.split("\n"); 	// split into lines
+	var text="t,signal,squared\n";
+	for (var i=1;i<lines.length;i++) { // skip header
+       var pieces = lines[i].split(","); // split by comma
+	   var y = parseFloat(pieces[1]);  // convert second piece to a number
+	   text += pieces[0]+","+y.toFixed(5)+","+y*y+"\n";
+    }
+
+	save_link.setAttribute('href',"data:text/csv;charset=utf-8,"+encodeURIComponent(text));
+}
+</script>
+</body>
+</html>
+
+ 
